@@ -11,8 +11,14 @@ button,input,select{font:inherit;color:#fff}
 button{background:#000;border:1px solid #fff;padding:6px 8px;cursor:pointer;transition:background .15s,color .15s}
 button:hover,button.on{background:#fff;color:#000}
 :focus-visible{outline:2px solid #fff;outline-offset:2px}
-body{display:grid;grid-template-columns:300px minmax(0,1fr);height:100vh}
-aside{border-right:1px solid #333;padding:12px 14px;display:flex;flex-direction:column;gap:9px;overflow:auto}
+body{display:grid;grid-template-columns:320px minmax(0,1fr);height:100vh}
+aside{border-right:1px solid #333;padding:16px 16px;display:flex;flex-direction:column;gap:16px;overflow:auto}
+.g{display:flex;flex-direction:column;gap:9px}
+.g+.g{border-top:1px solid #333;padding-top:16px}
+.cb{display:flex;flex-direction:column;gap:5px}
+.cb>label{color:#bbb}
+.cr{display:grid;grid-template-columns:44px 1fr;gap:6px}
+.t{background:#000;border:1px solid #666;padding:4px 6px;min-width:0;width:100%}
 .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .modes button{font-size:22px;padding:6px 8px;line-height:1.1;text-align:left}
 .modes small{display:block;font-size:10px;margin-top:3px;opacity:.75;line-height:1.2}
@@ -23,12 +29,12 @@ canvas{max-width:100%;max-height:calc(100vh - 60px);width:auto;height:auto;borde
 .row{display:flex;flex-direction:column;gap:2px}
 .row label{display:flex;justify-content:space-between;color:#bbb}
 .row output{color:#fff}
-.sl{display:flex;flex-direction:column;gap:6px}
+.sl{display:flex;flex-direction:column;gap:12px}
 input[type=range]{width:100%;margin:0;height:16px;accent-color:#fff}
 input[type=number]{width:100%;background:#000;border:1px solid #666;padding:4px 6px}
-input[type=color]{width:100%;height:24px;background:#000;border:1px solid #666;padding:1px}
+input[type=color]{width:100%;height:26px;background:#000;border:1px solid #666;padding:1px}
 select{background:#000;border:1px solid #666;padding:4px;width:100%}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .chk{display:flex;gap:6px;align-items:center;color:#ddd}
 .chk input{accent-color:#fff;margin:0}
 hr{border:0;border-top:1px solid #333;width:100%;margin:0}
@@ -40,29 +46,42 @@ hr{border:0;border-top:1px solid #333;width:100%;margin:0}
 </head>
 <body>
 <aside>
-  <div class="modes">
-    <button data-m="1" class="on">01<small>Nhỏ, đều</small></button>
-    <button data-m="2">02<small>Không đều</small></button>
-    <button data-m="3">03<small>Rất lớn</small></button>
-  </div>
-  <button id="bSvg">Tải SVG làm khung hình</button>
-  <input type="file" id="fSvg" accept=".svg,image/svg+xml" hidden>
-  <div class="info">Shape: <b id="fname">HELLO (mặc định)</b> · Particle: <b id="cnt">0</b></div>
-  <hr>
-  <div class="sl" id="sliders"></div>
-  <div class="two"><input type="number" id="seed" value="1" min="0" step="1" title="Seed"><button id="bRnd">Random</button></div>
-  <div class="two">
-    <div class="row"><label>Màu particle</label><input type="color" id="fg" value="#ffffff"></div>
-    <div class="row"><label>Màu nền</label><input type="color" id="bg" value="#000000"></div>
-  </div>
-  <hr>
-  <div class="two"><button id="bPart">Particle tùy chỉnh</button><button id="bReset">Reset về tròn</button></div>
-  <input type="file" id="fPart" accept=".svg,.png,.jpg,.jpeg,image/*" hidden>
-  <label class="chk"><input type="checkbox" id="rot"> Xoay ngẫu nhiên particle</label>
-  <hr>
-  <div class="two"><select id="scale" title="Độ phân giải PNG"><option value="1">PNG 1x</option><option value="2" selected>PNG 2x</option><option value="4">PNG 4x</option></select><button id="bPng">Tải PNG</button></div>
-  <div class="two"><label class="chk"><input type="checkbox" id="pngT"> PNG trong suốt</label><label class="chk"><input type="checkbox" id="svgT"> SVG trong suốt</label></div>
-  <button id="bSvgOut">Tải SVG (vector)</button>
+  <section class="g">
+    <div class="modes">
+      <button data-m="1" class="on">01<small>Nhỏ, đều</small></button>
+      <button data-m="2">02<small>Không đều</small></button>
+      <button data-m="3">03<small>Rất lớn</small></button>
+    </div>
+  </section>
+  <section class="g">
+    <button id="bSvg">Tải SVG làm khung hình</button>
+    <input type="file" id="fSvg" accept=".svg,image/svg+xml" hidden>
+    <div class="info">Shape: <b id="fname">HELLO (mặc định)</b><br>Số particle: <b id="cnt">0</b></div>
+  </section>
+  <section class="g">
+    <div class="sl" id="sliders"></div>
+    <div class="two"><input type="number" id="seed" value="1" min="0" step="1" title="Seed"><button id="bRnd">Random</button></div>
+  </section>
+  <section class="g">
+    <div class="cb"><label>Màu particle</label>
+      <div class="cr"><input type="color" id="fg" value="#ffffff"><input class="t" id="fgHex" placeholder="HEX" spellcheck="false"></div>
+      <div class="two"><input class="t" id="fgRgb" placeholder="RGB" spellcheck="false"><input class="t" id="fgCmyk" placeholder="CMYK" spellcheck="false"></div></div>
+    <div class="cb"><label>Màu nền</label>
+      <div class="cr"><input type="color" id="bg" value="#000000"><input class="t" id="bgHex" placeholder="HEX" spellcheck="false"></div>
+      <div class="two"><input class="t" id="bgRgb" placeholder="RGB" spellcheck="false"><input class="t" id="bgCmyk" placeholder="CMYK" spellcheck="false"></div></div>
+  </section>
+  <section class="g">
+    <div class="two"><button id="bPart">Particle tùy chỉnh</button><button id="bReset">Reset về tròn</button></div>
+    <input type="file" id="fPart" accept=".svg,.png,.jpg,.jpeg,image/*" hidden>
+    <label class="chk"><input type="checkbox" id="rot"> Xoay ngẫu nhiên particle</label>
+    <label class="chk"><input type="checkbox" id="tint"> Đổi màu particle tùy chỉnh theo “Màu particle”</label>
+  </section>
+  <section class="g">
+    <div class="two"><select id="scale" title="Độ phân giải PNG"><option value="1">PNG 1x</option><option value="2" selected>PNG 2x</option><option value="4">PNG 4x</option></select><button id="bPng">Tải PNG</button></div>
+    <label class="chk"><input type="checkbox" id="pngT"> PNG nền trong suốt</label>
+    <button id="bSvgOut">Tải SVG (vector)</button>
+    <label class="chk"><input type="checkbox" id="svgT"> SVG nền trong suốt</label>
+  </section>
 </aside>
 <div class="stage" id="stage">
   <canvas id="cv" width="1400" height="700"></canvas>
@@ -215,7 +234,7 @@ function render(c,sc,transparent){
   c.setTransform(sc,0,0,sc,0,0); c.clearRect(0,0,S.W,S.H);
   if(!transparent){ c.fillStyle=$('bg').value; c.fillRect(0,0,S.W,S.H); }
   c.fillStyle=$('fg').value;
-  const img=S.custom, ar=S.ar, rot=$('rot').checked;
+  const img=S.custom&&(S.tintCv||S.custom), ar=S.ar, rot=$('rot').checked;
   if(!img){ c.beginPath(); for(const p of S.parts){ c.moveTo(p.x+p.d/2,p.y); c.arc(p.x,p.y,p.d/2,0,6.2832); } c.fill(); return; }
   for(const p of S.parts){
     const d=p.d;
@@ -239,7 +258,7 @@ function exportSVG(){
   let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S.W} ${S.H}" width="${S.W}" height="${S.H}">`;
   if(!$('svgT').checked) s+=`<rect width="100%" height="100%" fill="${$('bg').value}"/>`;
   if(S.custom){
-    s+=`<defs><image id="p" width="${ar}" height="1" href="${S.customSrc}"/></defs>`;
+    s+=`<defs><image id="p" width="${ar}" height="1" href="${exportSrc()}"/></defs>`;
     for(const p of S.parts) s+=`<use href="#p" transform="translate(${f(p.x)} ${f(p.y)})${rot?` rotate(${f(p.rot*57.2958)})`:''} scale(${f(p.d)}) translate(${-ar/2} -0.5)"/>`;
   }else{
     s+=`<g fill="${$('fg').value}">`;
@@ -250,11 +269,37 @@ function exportSVG(){
 }
 
 // ---- Particle tùy chỉnh ----
+// Tạo bản particle đã tô màu (giữ phần có alpha, thay màu bằng "Màu particle")
+function updateTint(){
+  S.tintCv=null; if(!S.custom||!$('tint').checked) return;
+  const iw=S.custom.naturalWidth||256, ih=S.custom.naturalHeight||256, k=512/Math.max(iw,ih), c=document.createElement('canvas');
+  c.width=Math.max(1,Math.round(iw*k)); c.height=Math.max(1,Math.round(ih*k));
+  const x=c.getContext('2d'); x.drawImage(S.custom,0,0,c.width,c.height);
+  x.globalCompositeOperation='source-in'; x.fillStyle=$('fg').value; x.fillRect(0,0,c.width,c.height); S.tintCv=c;
+}
+const colorChanged=()=>{ updateTint(); draw(); };
+// Đổi màu trực tiếp trong mã SVG (giữ vector khi xuất file)
+function recolorSvg(text,color){
+  const doc=new DOMParser().parseFromString(text,'image/svg+xml'), root=doc.documentElement;
+  if(doc.querySelector('parsererror')) return null;
+  const st=doc.createElementNS('http://www.w3.org/2000/svg','style');
+  st.textContent=`path,circle,rect,ellipse,polygon,polyline,text,tspan{fill:${color}!important}[fill="none"]{fill:none!important}[stroke]:not([stroke="none"]){stroke:${color}!important}`;
+  root.insertBefore(st,root.firstChild);
+  if(!root.getAttribute('xmlns')) root.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  return 'data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(new XMLSerializer().serializeToString(root))));
+}
+function exportSrc(){
+  if(!$('tint').checked) return S.customSrc;
+  if(S.customSvg){ const r=recolorSvg(S.customSvg,$('fg').value); if(r) return r; }
+  return S.tintCv?S.tintCv.toDataURL('image/png'):S.customSrc;
+}
 function loadParticle(f){
   if(!f) return;
-  const r=new FileReader();
+  const isSvg=/svg/i.test(f.type)||/\.svg$/i.test(f.name), r=new FileReader();
   r.onload=()=>{ const im=new Image();
-    im.onload=()=>{ S.custom=im; S.customSrc=r.result; S.ar=(im.naturalWidth&&im.naturalHeight)?im.naturalWidth/im.naturalHeight:1; gen(true); };
+    im.onload=async()=>{ S.custom=im; S.customSrc=r.result; S.customSvg=isSvg?await f.text():null;
+      S.ar=(im.naturalWidth&&im.naturalHeight)?im.naturalWidth/im.naturalHeight:1;
+      $('tint').checked=isSvg; updateTint(); gen(true); };
     im.onerror=()=>toast('Không đọc được ảnh particle.'); im.src=r.result; };
   r.readAsDataURL(f);
 }
@@ -263,7 +308,8 @@ function loadParticle(f){
 const regen=debounce(()=>gen(false),70), reb=debounce(()=>rebuild(false),90);
 SL.forEach(([k])=>$(k).addEventListener('input',()=>{ showOut(); k==='pad'?reb():regen(); }));
 $('seed').addEventListener('input',regen);
-['fg','bg','rot'].forEach(id=>$(id).addEventListener('input',draw));
+['fg','bg','rot'].forEach(id=>$(id).addEventListener('input',colorChanged));
+$('tint').addEventListener('change',colorChanged);
 document.querySelectorAll('.modes button').forEach(b=>b.onclick=()=>{
   S.mode=+b.dataset.m; document.querySelectorAll('.modes button').forEach(x=>x.classList.toggle('on',x===b));
   setSliders(PRESET[S.mode]); gen(true); });
@@ -278,12 +324,33 @@ $('bSvg').onclick=()=>$('fSvg').click();
 $('fSvg').onchange=e=>{ readSVGFile(e.target.files[0]); e.target.value=''; };
 $('bPart').onclick=()=>$('fPart').click();
 $('fPart').onchange=e=>{ loadParticle(e.target.files[0]); e.target.value=''; };
-$('bReset').onclick=()=>{ S.custom=null; S.customSrc=null; S.ar=1; gen(true); };
+$('bReset').onclick=()=>{ S.custom=null; S.customSrc=null; S.customSvg=null; S.tintCv=null; S.ar=1; gen(true); };
 const st=$('stage');
 st.addEventListener('dragover',e=>{ e.preventDefault(); st.classList.add('drag'); });
 st.addEventListener('dragleave',()=>st.classList.remove('drag'));
 st.addEventListener('drop',e=>{ e.preventDefault(); st.classList.remove('drag'); readSVGFile(e.dataTransfer.files[0]); });
 window.addEventListener('dragover',e=>e.preventDefault()); window.addEventListener('drop',e=>e.preventDefault());
+
+// ---- Ô nhập màu HEX / RGB / CMYK đồng bộ với color picker ----
+const hex2rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const rgb2hex=(r,g,b)=>'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+function rgb2cmyk(r,g,b){ r/=255;g/=255;b/=255; const k=1-Math.max(r,g,b); if(k>=1) return [0,0,0,100];
+  return [(1-r-k)/(1-k),(1-g-k)/(1-k),(1-b-k)/(1-k),k].map(v=>Math.round(v*100)); }
+const cmyk2rgb=(c,m,y,k)=>[c,m,y].map(v=>255*(1-v/100)*(1-k/100));
+const nums=t=>(t.match(/\d+(\.\d+)?/g)||[]).map(Number);
+function bindColor(id){
+  const inp=$(id), hx=$(id+'Hex'), rg=$(id+'Rgb'), cm=$(id+'Cmyk');
+  const show=()=>{ const [r,g,b]=hex2rgb(inp.value); hx.value=inp.value.toUpperCase(); rg.value=`${r}, ${g}, ${b}`; cm.value=rgb2cmyk(r,g,b).join(', '); };
+  const set=hex=>{ inp.value=hex; show(); colorChanged(); };
+  inp.addEventListener('input',show);
+  hx.addEventListener('change',()=>{ let v=hx.value.trim().replace(/^#?/,'#');
+    if(/^#[0-9a-f]{3}$/i.test(v)) v='#'+[...v.slice(1)].map(c=>c+c).join('');
+    if(/^#[0-9a-f]{6}$/i.test(v)) set(v.toLowerCase()); else { toast('HEX không hợp lệ'); show(); } });
+  rg.addEventListener('change',()=>{ const n=nums(rg.value); if(n.length>=3) set(rgb2hex(...n.slice(0,3))); else { toast('RGB không hợp lệ (vd: 255, 255, 255)'); show(); } });
+  cm.addEventListener('change',()=>{ const n=nums(cm.value); if(n.length>=4) set(rgb2hex(...cmyk2rgb(...n.slice(0,4).map(v=>Math.min(100,v))))); else { toast('CMYK không hợp lệ (vd: 0, 0, 0, 100)'); show(); } });
+  show();
+}
+bindColor('fg'); bindColor('bg');
 
 // ---- Khởi động với shape mặc định ----
 S.drawer=defaultDrawer(); rebuild(true);
