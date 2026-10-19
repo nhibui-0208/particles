@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Particle Shape – Halftone từ SVG</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000;color:#fff;font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+button,input,select{font:inherit;color:#fff}
+button{background:#000;border:1px solid #fff;padding:6px 8px;cursor:pointer;transition:background .15s,color .15s}
+button:hover,button.on{background:#fff;color:#000}
+:focus-visible{outline:2px solid #fff;outline-offset:2px}
+body{display:grid;grid-template-columns:300px minmax(0,1fr);height:100vh}
+aside{border-right:1px solid #333;padding:12px 14px;display:flex;flex-direction:column;gap:9px;overflow:auto}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.modes button{font-size:22px;padding:6px 8px;line-height:1.1;text-align:left}
+.modes small{display:block;font-size:10px;margin-top:3px;opacity:.75;line-height:1.2}
+.stage{position:relative;display:flex;align-items:center;justify-content:center;padding:16px;min-width:0;border:1px dashed transparent;margin:8px}
+.stage.drag{border-color:#fff;background:#0d0d0d}
+canvas{max-width:100%;max-height:calc(100vh - 60px);width:auto;height:auto;border:1px solid #333}
+.hint{position:absolute;left:22px;bottom:18px;color:#9a9a9a;font-size:11px;pointer-events:none}
+.row{display:flex;flex-direction:column;gap:2px}
+.row label{display:flex;justify-content:space-between;color:#bbb}
+.row output{color:#fff}
+.sl{display:flex;flex-direction:column;gap:6px}
+input[type=range]{width:100%;margin:0;height:16px;accent-color:#fff}
+input[type=number]{width:100%;background:#000;border:1px solid #666;padding:4px 6px}
+input[type=color]{width:100%;height:24px;background:#000;border:1px solid #666;padding:1px}
+select{background:#000;border:1px solid #666;padding:4px;width:100%}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.chk{display:flex;gap:6px;align-items:center;color:#ddd}
+.chk input{accent-color:#fff;margin:0}
+hr{border:0;border-top:1px solid #333;width:100%;margin:0}
+.info{color:#9a9a9a;font-size:11px;word-break:break-all}
+.info b{color:#fff;font-weight:400}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#fff;color:#000;padding:8px 14px;display:none;z-index:9}
+@media(max-width:820px){body{grid-template-columns:1fr;height:auto}aside{border-right:0;border-bottom:1px solid #333;order:2}canvas{max-height:70vh}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="modes">
+    <button data-m="1" class="on">01<small>Nhỏ, đều</small></button>
+    <button data-m="2">02<small>Không đều</small></button>
+    <button data-m="3">03<small>Rất lớn</small></button>
+  </div>
+  <button id="bSvg">Tải SVG làm khung hình</button>
+  <input type="file" id="fSvg" accept=".svg,image/svg+xml" hidden>
+  <div class="info">Shape: <b id="fname">HELLO (mặc định)</b> · Particle: <b id="cnt">0</b></div>
+  <hr>
+  <div class="sl" id="sliders"></div>
+  <div class="two"><input type="number" id="seed" value="1" min="0" step="1" title="Seed"><button id="bRnd">Random</button></div>
+  <div class="two">
+    <div class="row"><label>Màu particle</label><input type="color" id="fg" value="#ffffff"></div>
+    <div class="row"><label>Màu nền</label><input type="color" id="bg" value="#000000"></div>
+  </div>
+  <hr>
+  <div class="two"><button id="bPart">Particle tùy chỉnh</button><button id="bReset">Reset về tròn</button></div>
+  <input type="file" id="fPart" accept=".svg,.png,.jpg,.jpeg,image/*" hidden>
+  <label class="chk"><input type="checkbox" id="rot"> Xoay ngẫu nhiên particle</label>
+  <hr>
+  <div class="two"><select id="scale" title="Độ phân giải PNG"><option value="1">PNG 1x</option><option value="2" selected>PNG 2x</option><option value="4">PNG 4x</option></select><button id="bPng">Tải PNG</button></div>
+  <div class="two"><label class="chk"><input type="checkbox" id="pngT"> PNG trong suốt</label><label class="chk"><input type="checkbox" id="svgT"> SVG trong suốt</label></div>
+  <button id="bSvgOut">Tải SVG (vector)</button>
+</aside>
+<div class="stage" id="stage">
+  <canvas id="cv" width="1400" height="700"></canvas>
+  <div class="hint">Kéo-thả file SVG vào đây để dùng làm khung hình</div>
+</div>
+<div id="toast"></div>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+
+// ---- Trạng thái chung ----
+const S = { mode:1, W:1400, H:700, mask:null, dist:null, inside:null, parts:[],
+  drawer:null, custom:null, customSrc:null, ar:1 };
+
+// Preset theo từng chế độ (kích thước = đường kính, px)
+const PRESET = {
+  1:{sp:9, mn:4, mx:4, va:0},
+  2:{sp:10, mn:3, mx:22, va:.6},
+  3:{sp:26, mn:12, mx:70, va:.8}
+};
+const SL = [
+  ['sp','Mật độ / khoảng cách',3,60,.5],
+  ['mn','Size nhỏ nhất',1,60,.5],
+  ['mx','Size lớn nhất',1,100,.5],
+  ['va','Độ chênh lệch size',0,1,.01],
+  ['pad','Scale / padding shape (%)',30,100,1]
+];
+$('sliders').innerHTML = SL.map(([k,t,a,b,s]) =>
+  `<div class="row"><label>${t}<output id="o_${k}"></output></label>
+   <input type="range" id="${k}" min="${a}" max="${b}" step="${s}"></div>`).join('');
+const getP = () => Object.fromEntries(SL.map(([k]) => [k, +$(k).value]));
+function setSliders(p){ for(const k in p) $(k).value = p[k]; showOut(); }
+function showOut(){ SL.forEach(([k]) => $('o_'+k).textContent = $(k).value); }
+setSliders({...PRESET[1], pad:88});
+
+// ---- Tiện ích ----
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>t.style.display='none',3500); }
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; } }
+const debounce = (fn,ms) => { let t; return (...a) => { clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---- Tạo mask từ hàm vẽ ----
+function buildMask(drawFn){
+  const W=S.W, H=S.H, c=document.createElement('canvas'); c.width=W; c.height=H;
+  const x=c.getContext('2d',{willReadFrequently:true});
+  const [rx,ry,rw,rh]=drawFn(x).map(Math.round);
+  const d=x.getImageData(0,0,W,H).data, n=W*H, m=new Uint8Array(n);
+  // Đếm pixel trong suốt bên trong vùng ảnh: nếu có -> dùng alpha, nếu không -> so với màu nền
+  let tr=0;
+  for(let j=Math.max(0,ry);j<Math.min(H,ry+rh);j++) for(let i=Math.max(0,rx);i<Math.min(W,rx+rw);i++) if(d[(j*W+i)*4+3]<128) tr++;
+  const useAlpha = tr > rw*rh*0.005;
+  if(useAlpha){ for(let i=0;i<n;i++) m[i]=d[i*4+3]>128?1:0; }
+  else{
+    const lum=o=>.299*d[o]+.587*d[o+1]+.114*d[o+2];
+    const ref=lum((Math.max(0,ry)*W+Math.max(0,rx)+1)*4);
+    for(let i=0;i<n;i++){ m[i]= d[i*4+3]>128 && Math.abs(lum(i*4)-ref)>60 ? 1:0; }
+  }
+  S.mask=m; computeDist(); 
+  const ins=[]; for(let i=0;i<n;i++) if(m[i]) ins.push(i);
+  S.inside=Uint32Array.from(ins);
+}
+// Khoảng cách xấp xỉ tới mép shape (chamfer 3-4), đơn vị = px*3
+function computeDist(){
+  const W=S.W,H=S.H,m=S.mask,D=new Uint16Array(W*H);
+  for(let i=0;i<D.length;i++) D[i]=m[i]?60000:0;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const i=y*W+x; if(!D[i])continue; let v=D[i];
+    if(x>0) v=Math.min(v,D[i-1]+3);
+    if(y>0){ v=Math.min(v,D[i-W]+3); if(x>0)v=Math.min(v,D[i-W-1]+4); if(x<W-1)v=Math.min(v,D[i-W+1]+4); }
+    D[i]=v; }
+  for(let y=H-1;y>=0;y--) for(let x=W-1;x>=0;x--){ const i=y*W+x; if(!D[i])continue; let v=D[i];
+    if(x<W-1) v=Math.min(v,D[i+1]+3);
+    if(y<H-1){ v=Math.min(v,D[i+W]+3); if(x<W-1)v=Math.min(v,D[i+W+1]+4); if(x>0)v=Math.min(v,D[i+W-1]+4); }
+    D[i]=v; }
+  S.dist=D;
+}
+
+// ---- Shape mặc định: chữ HELLO ----
+function defaultDrawer(){
+  return x => {
+    const pad=getP().pad/100; let fs=400;
+    x.font=`900 ${fs}px "Arial Black",Impact,Arial,sans-serif`;
+    fs*= S.W*pad/x.measureText('HELLO').width;
+    x.font=`900 ${fs}px "Arial Black",Impact,Arial,sans-serif`;
+    x.textAlign='center'; x.textBaseline='middle'; x.fillStyle='#000';
+    x.fillText('HELLO',S.W/2,S.H/2+fs*.04);
+    return [0,0,S.W,S.H];
+  };
+}
+function rebuild(anim){ buildMask(S.drawer); gen(anim); }
+
+// ---- Đọc SVG làm shape ----
+function loadSVG(text,name){
+  const doc=new DOMParser().parseFromString(text,'image/svg+xml'), root=doc.documentElement;
+  if(doc.querySelector('parsererror')||root.nodeName.toLowerCase()!=='svg'){ toast('SVG không hợp lệ, hãy thử file khác.'); return; }
+  const vb=(root.getAttribute('viewBox')||'').trim().split(/[\s,]+/).map(Number);
+  let w=parseFloat(root.getAttribute('width')), h=parseFloat(root.getAttribute('height'));
+  if(vb.length===4&&vb[2]>0&&vb[3]>0){ w=vb[2]; h=vb[3]; }
+  if(!(w>0&&h>0)){ w=1000; h=1000; }
+  root.setAttribute('width',w); root.setAttribute('height',h);
+  if(!root.getAttribute('xmlns')) root.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  const str=new XMLSerializer().serializeToString(root);
+  // Dùng data URL base64 để canvas không bị tainted khi mở bằng file://
+  const url='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(str)));
+  const img=new Image();
+  img.onerror=()=>toast('Không đọc được SVG này.');
+  img.onload=()=>{
+    const ar=Math.min(5,Math.max(.2,w/h)), L=1400;
+    S.W=ar>=1?L:Math.round(L*ar); S.H=ar>=1?Math.round(L/ar):L;
+    cv.width=S.W; cv.height=S.H;
+    S.drawer = x => {
+      const pad=getP().pad/100, s=Math.min(S.W*pad/w,S.H*pad/h), dw=w*s, dh=h*s, dx=(S.W-dw)/2, dy=(S.H-dh)/2;
+      x.drawImage(img,dx,dy,dw,dh); return [dx,dy,dw,dh];
+    };
+    $('fname').textContent=name; rebuild(true);
+  };
+  img.src=url;
+}
+function readSVGFile(f){
+  if(!f) return;
+  if(!/svg/i.test(f.type)&&!/\.svg$/i.test(f.name)){ toast('Chỉ nhận file .svg làm khung hình.'); return; }
+  const r=new FileReader(); r.onload=()=>loadSVG(r.result,f.name); r.onerror=()=>toast('Lỗi đọc file.'); r.readAsText(f);
+}
+
+// ---- Sinh particle ----
+function gen(anim){
+  const P=getP(), rnd=mulberry32(+$('seed').value||0), W=S.W, H=S.H, m=S.mask, D=S.dist, out=[];
+  const mk=(x,y,d)=>out.push({x,y,d:Math.max(1,d),rot:rnd()*6.2832,dl:rnd()});
+  if(S.mode===1){
+    // Chế độ 01: lưới đều, chỉ giữ chấm có tâm trong shape
+    for(let y=P.sp/2;y<H;y+=P.sp) for(let x=P.sp/2;x<W;x+=P.sp)
+      if(m[(y|0)*W+(x|0)]) mk(x,y,P.mn+(P.mx-P.mn)*P.va*rnd());
+  }else{
+    // Chế độ 02/03: lấy mẫu ngẫu nhiên trong mask, size lệch về phía nhỏ, giới hạn theo khoảng cách tới mép
+    const area=S.inside.length, k=S.mode===2?1.6:2.6;
+    const n=Math.min(60000,Math.round(area/(P.sp*P.sp)*k)), p=4-3*P.va, mx=Math.max(P.mx,P.mn);
+    for(let i=0;i<n;i++){
+      const idx=S.inside[(rnd()*area)|0], x=idx%W+rnd(), y=((idx/W)|0)+rnd(), ds=D[idx]/3;
+      let d=P.mn+(mx-P.mn)*Math.pow(rnd(),p);
+      const lim=S.mode===2? ds*2+4 : ds*2.2+P.mn;
+      mk(x,y,Math.min(d,lim));
+    }
+  }
+  S.parts=out; $('cnt').textContent=out.length.toLocaleString('vi-VN');
+  draw();
+}
+
+// ---- Vẽ ----
+function render(c,sc,transparent){
+  c.setTransform(sc,0,0,sc,0,0); c.clearRect(0,0,S.W,S.H);
+  if(!transparent){ c.fillStyle=$('bg').value; c.fillRect(0,0,S.W,S.H); }
+  c.fillStyle=$('fg').value;
+  const img=S.custom, ar=S.ar, rot=$('rot').checked;
+  if(!img){ c.beginPath(); for(const p of S.parts){ c.moveTo(p.x+p.d/2,p.y); c.arc(p.x,p.y,p.d/2,0,6.2832); } c.fill(); return; }
+  for(const p of S.parts){
+    const d=p.d;
+    if(rot){ const co=Math.cos(p.rot)*sc, si=Math.sin(p.rot)*sc; c.setTransform(co,si,-si,co,p.x*sc,p.y*sc); c.drawImage(img,-d*ar/2,-d/2,d*ar,d); c.setTransform(sc,0,0,sc,0,0); }
+    else c.drawImage(img,p.x-d*ar/2,p.y-d/2,d*ar,d);
+  }
+}
+let raf=0;
+function draw(){ if(raf) return; raf=requestAnimationFrame(()=>{ raf=0; render(ctx,1,false); }); }
+
+// ---- Xuất file ----
+function download(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+const stamp=()=>new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+function exportPNG(){
+  const sc=+$('scale').value, c=document.createElement('canvas'); c.width=S.W*sc; c.height=S.H*sc;
+  render(c.getContext('2d'),sc,$('pngT').checked,false);
+  c.toBlob(b=>b?download(b,`particle-${stamp()}.png`):toast('Ảnh quá lớn, hãy chọn tỉ lệ nhỏ hơn.'),'image/png');
+}
+function exportSVG(){
+  const f=n=>n.toFixed(1), rot=$('rot').checked, ar=S.ar;
+  let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S.W} ${S.H}" width="${S.W}" height="${S.H}">`;
+  if(!$('svgT').checked) s+=`<rect width="100%" height="100%" fill="${$('bg').value}"/>`;
+  if(S.custom){
+    s+=`<defs><image id="p" width="${ar}" height="1" href="${S.customSrc}"/></defs>`;
+    for(const p of S.parts) s+=`<use href="#p" transform="translate(${f(p.x)} ${f(p.y)})${rot?` rotate(${f(p.rot*57.2958)})`:''} scale(${f(p.d)}) translate(${-ar/2} -0.5)"/>`;
+  }else{
+    s+=`<g fill="${$('fg').value}">`;
+    for(const p of S.parts) s+=`<circle cx="${f(p.x)}" cy="${f(p.y)}" r="${f(p.d/2)}"/>`;
+    s+='</g>';
+  }
+  download(new Blob([s+'</svg>'],{type:'image/svg+xml'}),`particle-${stamp()}.svg`);
+}
+
+// ---- Particle tùy chỉnh ----
+function loadParticle(f){
+  if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ const im=new Image();
+    im.onload=()=>{ S.custom=im; S.customSrc=r.result; S.ar=(im.naturalWidth&&im.naturalHeight)?im.naturalWidth/im.naturalHeight:1; gen(true); };
+    im.onerror=()=>toast('Không đọc được ảnh particle.'); im.src=r.result; };
+  r.readAsDataURL(f);
+}
+
+// ---- Sự kiện ----
+const regen=debounce(()=>gen(false),70), reb=debounce(()=>rebuild(false),90);
+SL.forEach(([k])=>$(k).addEventListener('input',()=>{ showOut(); k==='pad'?reb():regen(); }));
+$('seed').addEventListener('input',regen);
+['fg','bg','rot'].forEach(id=>$(id).addEventListener('input',draw));
+document.querySelectorAll('.modes button').forEach(b=>b.onclick=()=>{
+  S.mode=+b.dataset.m; document.querySelectorAll('.modes button').forEach(x=>x.classList.toggle('on',x===b));
+  setSliders(PRESET[S.mode]); gen(true); });
+// Random: đổi ngẫu nhiên giá trị các thanh trượt (trong khoảng hợp lý của từng chế độ) + seed
+const RR={1:{sp:[6,16],mn:[2,7],va:[0,.5]},2:{sp:[6,20],mn:[2,8],mx:[12,40],va:[.2,1]},3:{sp:[18,40],mn:[8,30],mx:[45,90],va:[.4,1]}};
+$('bRnd').onclick=()=>{
+  const r=RR[S.mode], v=k=>{ const [a,b]=r[k]; return Math.round((a+Math.random()*(b-a))*100)/100; };
+  const p={sp:v('sp'),mn:v('mn'),va:v('va')}; p.mx=S.mode===1?p.mn:Math.max(p.mn,v('mx'));
+  setSliders(p); $('seed').value=Math.floor(Math.random()*1e6); gen(false); };
+$('bPng').onclick=exportPNG; $('bSvgOut').onclick=exportSVG;
+$('bSvg').onclick=()=>$('fSvg').click();
+$('fSvg').onchange=e=>{ readSVGFile(e.target.files[0]); e.target.value=''; };
+$('bPart').onclick=()=>$('fPart').click();
+$('fPart').onchange=e=>{ loadParticle(e.target.files[0]); e.target.value=''; };
+$('bReset').onclick=()=>{ S.custom=null; S.customSrc=null; S.ar=1; gen(true); };
+const st=$('stage');
+st.addEventListener('dragover',e=>{ e.preventDefault(); st.classList.add('drag'); });
+st.addEventListener('dragleave',()=>st.classList.remove('drag'));
+st.addEventListener('drop',e=>{ e.preventDefault(); st.classList.remove('drag'); readSVGFile(e.dataTransfer.files[0]); });
+window.addEventListener('dragover',e=>e.preventDefault()); window.addEventListener('drop',e=>e.preventDefault());
+
+// ---- Khởi động với shape mặc định ----
+S.drawer=defaultDrawer(); rebuild(true);
+</script>
+</body>
+</html>
